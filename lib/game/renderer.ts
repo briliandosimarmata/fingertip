@@ -32,20 +32,23 @@ function symbol(ctx: CanvasRenderingContext2D, name: PlayerSymbol, x: number, y:
   ctx.restore();
 }
 function label(ctx: CanvasRenderingContext2D, p: Player, r: number, width: number, height: number, players: Player[]) {
-  const side = p.x < width / 2 ? -1 : 1;
-  const candidates = [
-    { x: p.x + side * (r + 23), y: p.y - 2 },
-    { x: p.x - side * (r + 23), y: p.y - 2 },
-    { x: p.x, y: p.y + r + 23 },
-    { x: p.x, y: p.y - r - 35 },
-  ];
-  const inside = candidates.filter(c => c.x >= 17 && c.x <= width - 17 && c.y >= 18 && c.y <= height - 26);
-  const position = inside.find(c => players.every(other => other.id === p.id || Math.hypot(c.x - other.x, c.y + 7 - other.y) > RULES.ringRadius + 23)) ?? inside[0] ?? { x: Math.max(17, Math.min(width - 17, p.x)), y: Math.max(18, Math.min(height - 26, p.y + r + 20)) };
   // Opaque white labels stay readable even when nonwinning rings dim.
   ctx.save(); ctx.globalAlpha = 1; ctx.shadowBlur = 0;
   ctx.fillStyle = "#F7F9FD"; ctx.strokeStyle = "#F7F9FD";
   ctx.font = "750 15px ui-rounded, system-ui, sans-serif"; ctx.textAlign = "center";
-  ctx.fillText(String(p.id).padStart(2, "0"), position.x, position.y);
+  const text = String(p.id).padStart(2, "0");
+  const halfWidth = Math.max(17, ctx.measureText(text).width / 2 + 2);
+  const offset = r + Math.max(23, halfWidth + 6);
+  const side = p.x < width / 2 ? -1 : 1;
+  const candidates = [
+    { x: p.x + side * offset, y: p.y - 2 },
+    { x: p.x - side * offset, y: p.y - 2 },
+    { x: p.x, y: p.y + r + 23 },
+    { x: p.x, y: p.y - r - 35 },
+  ];
+  const inside = candidates.filter(c => c.x >= halfWidth && c.x <= width - halfWidth && c.y >= 18 && c.y <= height - 26);
+  const position = inside.find(c => players.every(other => other.id === p.id || Math.hypot(c.x - other.x, c.y + 7 - other.y) > RULES.ringRadius + 23)) ?? inside[0] ?? { x: Math.max(halfWidth, Math.min(width - halfWidth, p.x)), y: Math.max(18, Math.min(height - 26, p.y + r + 20)) };
+  ctx.fillText(text, position.x, position.y);
   symbol(ctx, p.symbol, position.x, position.y + 17, 6.5);
   ctx.restore();
 }

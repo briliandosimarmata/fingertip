@@ -1,5 +1,5 @@
 import { randomIndex } from "./random.js";
-import { PLAYER_STYLES, type PlayerSymbol } from "./identity.js";
+import { playerStyle, type PlayerSymbol } from "./identity.js";
 export { COLORS, PLAYER_STYLES } from "./identity.js";
 
 export type Mode = "random" | "pinball";
@@ -8,6 +8,7 @@ export type SoundEvent = "join" | "tick" | "launch" | "bounce" | "pause" | "retu
 export const RULES = {
   gatherMs: 10_000,
   pickMs: 7_000,
+  pickExtraPlayerMs: 1_000,
   returnMs: 5_000,
   settleMs: 1_200,
   ringRadius: 30,
@@ -45,7 +46,7 @@ export interface Snapshot {
   players: Player[];
   countdown: number;
   winnerId: number | null;
-  capacity: number;
+  pickDurationMs: number;
   notice: string;
   returnSeconds: number;
   demo: boolean;
@@ -56,6 +57,7 @@ type EngineOptions = {
 };
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 const distance = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+const pickingDuration = (players: number) => RULES.pickMs + Math.max(0, players - 2) * RULES.pickExtraPlayerMs;
 
 /** The simulation is independent of React, Canvas, and browser input. */
 export class PickerEngine {
@@ -65,7 +67,7 @@ export class PickerEngine {
   ball: Ball = { x: 0, y: 0, vx: 0, vy: 0, color: "#ffffff", targetId: null, trail: [] };
   width = 640;
   height = 480;
-  capacity = 8;
+  pickDurationMs = RULES.pickMs;
   winnerId: number | null = null;
   demo = false;
   now = 0;
@@ -90,13 +92,11 @@ export class PickerEngine {
     this.sound = options.sound ?? (() => {});
   }
 
-  resize(width: number, height: number, touchCapacity = 8) {
+  resize(width: number, height: number) {
     const oldWidth = this.width;
     const oldHeight = this.height;
     this.width = Math.max(160, width);
     this.height = Math.max(160, height);
-    // Space is the primary admission rule; reported hardware capacity is a cap.
-    this.capacity = Math.max(2, Math.min(8, touchCapacity || 8, Math.floor(width * height / 18_000)));
     for (const player of this.players) {
       player.x = clamp(player.x / oldWidth * this.width, 34, this.width - 34);
       player.y = clamp(player.y / oldHeight * this.height, 34, this.height - 34);
@@ -133,6 +133,7 @@ export class PickerEngine {
     this.winnerId = null;
     this.gatherElapsed = 0;
     this.pickElapsed = 0;
+    this.pickDurationMs = RULES.pickMs;
     this.nextId = 1;
     this.lastCountdown = 10;
     this.previousNow = null;
@@ -172,11 +173,7 @@ export class PickerEngine {
       return returning.id;
     }
     if (this.phase !== "gathering") {
-      this.message(this.phase === "paused" ? "Place your finger inside its countdown ring." : "The round is full. Join the next one.");
-      return null;
-    }
-    if (this.players.length >= this.capacity) {
-      this.message("All places are taken for this round.");
+      this.message(this.phase === "paused" ? "Place your finger inside its countdown ring." : "Picking has started. Join the next round.");
       return null;
     }
     if (this.players.some(p => distance(p, { x, y }) < RULES.minSpacing)) {
@@ -188,7 +185,11 @@ export class PickerEngine {
       return null;
     }
     const id = this.nextId++;
-    const style = PLAYER_STYLES.find(s => !this.players.some(p => p.color === s.color)) ?? PLAYER_STYLES[(id - 1) % PLAYER_STYLES.length];
+    let styleIndex = 0;
+    let style = playerStyle(styleIndex);
+    while (this.players.some(p => p.color === style.color && p.symbol === style.symbol)) {
+      style = playerStyle(++styleIndex);
+    }
     this.players.push({ id, pointerId, x, y, vx: 0, vy: 0, movedAt: now, color: style.color, symbol: style.symbol, active: true, missingUntil: null, lastHitAt: -1000 });
     this.sound("join", id);
     return id;
@@ -273,7 +274,7 @@ export class PickerEngine {
       if (this.gatherElapsed >= RULES.gatherMs && this.players.length >= 2) this.beginPicking();
     } else if (this.phase === "picking") {
       this.pickElapsed += dtMs;
-      if (this.pickElapsed >= RULES.pickMs - RULES.settleMs) {
+      if (this.pickElapsed >= this.pickDurationMs - RULES.settleMs) {
         this.settle();
       } else if (this.mode === "random") {
         this.randomBounce(Math.min(dtMs / 1000, 0.1));
@@ -290,6 +291,7 @@ export class PickerEngine {
   private beginPicking() {
     this.phase = "picking";
     this.pickElapsed = 0;
+    this.pickDurationMs = pickingDuration(this.players.length);
     this.lastHitId = null;
     this.landingId = null;
     this.landingFrom = null;
@@ -306,7 +308,7 @@ export class PickerEngine {
   }
 
   private speed() {
-    const progress = clamp(this.pickElapsed / (RULES.pickMs - RULES.settleMs), 0, 1);
+    const progress = clamp(this.pickElapsed / (this.pickDurationMs - RULES.settleMs), 0, 1);
     return 880 - 650 * progress * progress;
   }
 
@@ -402,7 +404,7 @@ export class PickerEngine {
     }
     const target = this.players.find(p => p.id === this.landingId);
     if (!target || !this.landingFrom) return;
-    const t = clamp((this.pickElapsed - (RULES.pickMs - RULES.settleMs)) / RULES.settleMs, 0, 1);
+    const t = clamp((this.pickElapsed - (this.pickDurationMs - RULES.settleMs)) / RULES.settleMs, 0, 1);
     const eased = 1 - Math.pow(1 - t, 3);
     const from = this.landingFrom;
     const angle = Math.atan2(from.y - target.y, from.x - target.x);
@@ -428,7 +430,7 @@ export class PickerEngine {
       players: this.players.map(p => ({ ...p })),
       countdown: Math.max(0, Math.ceil((RULES.gatherMs - this.gatherElapsed) / 1000)),
       winnerId: this.phase === "winner" ? this.winnerId : null,
-      capacity: this.capacity,
+      pickDurationMs: this.phase === "gathering" || (this.phase === "paused" && this.pausedFrom === "gathering") ? pickingDuration(this.players.length) : this.pickDurationMs,
       notice: this.notice,
       returnSeconds: missing.length ? Math.max(0, Math.ceil((Math.min(...missing.map(p => p.missingUntil!)) - this.now) / 1000)) : 0,
       demo: this.demo,

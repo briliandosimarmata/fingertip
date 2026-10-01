@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Remove screen-area, reported-touch, and eight-player count caps while keeping spacing and edge admission rules.
+- Scale both modes' ball animation from seven seconds for two players by one additional second per extra player; preserve duration on return and recalculate after a survivor restart.
+- Show bounce duration during gathering and play, and extend player identities beyond eight distinct color/symbol pairs.
+
 ## 1.1.0
 
 - Expanded gathering, picking, paused rounds, and results to fill the browser viewport. Setup no longer occupies play space; controls float over the Canvas with safe-area offsets.

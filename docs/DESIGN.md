@@ -13,7 +13,7 @@ Fingertip should feel like a small party game: one clear action, friendly rounde
 
 `100dvh` tracks the mobile browser's changing visible height, with `100vh` as a fallback. Safe-area offsets keep buttons clear of notches and home indicators. Body scrolling is disabled during play and restored on exit. This layout does not use the Fullscreen API or promise to hide browser controls.
 
-The board's measured dimensions feed engine capacity and input coordinates. Keep `ResizeObserver`, the single mounted Canvas, and the pointer adapter's size synchronization intact when changing the layout. Increasing visual area does not override reported touch capacity, minimum finger spacing, or the eight-player logical maximum.
+The board's measured dimensions feed input coordinates. Keep `ResizeObserver`, the single mounted Canvas, and the pointer adapter's size synchronization intact when changing the layout. There is no software participant maximum or screen-area count cap. Minimum finger spacing, edge margins, and actual device/browser touch capabilities still affect physical play. Show player count and the upcoming bounce duration in the floating hint during gathering.
 
 ## Player palette and symbols
 
@@ -34,7 +34,11 @@ The seven chromatic colors come from Masataka Okabe and Kei Ito's [Color Univers
 
 Every participant also has a stable number and geometric symbol. Both are opaque white on the playfield and appear outside the finger ring. The renderer tries the outward side, the opposite side, then below/above, avoiding edges and neighboring finger centers where space permits. Keep these cues visible during pauses and when nonwinning rings dim. The winner's number and symbol also appear in DOM text/icon feedback. This follows the [WCAG guidance on using color](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html) as one cue among several.
 
+Label offsets and horizontal edge bounds use the measured number width so longer participant numbers remain inside the board.
+
 Returning within the grace period preserves number, color, and symbol. New admissions choose an unused style, so the live group stays distinct even after a removed participant's slot is reused.
+
+For larger groups, `playerStyle` rotates the eight symbols against the eight base colors to provide 64 distinct pairs. Beyond those combinations, it generates hex colors using golden-angle hues, 70% saturation, and 72% lightness, paired with the same symbols. Generated color rounding can produce repeated colors, so the engine checks the final color/symbol pair against live participants before admission. The full group may share an individual color or symbol; the pair and opaque number carry identity. Numbers remain the unique cue in grayscale. Generated colors retain the six-digit hex representation required by the Canvas glow renderer.
 
 ## Theme values
 

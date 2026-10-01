@@ -33,7 +33,9 @@ The app does not need routing, authentication, a backend, or a global state libr
 
 The browser calls `advance(performance.now())` from `requestAnimationFrame`. Canvas reads the engine directly each frame. React receives a cloned snapshot at roughly 12 updates per second and immediately after key controls. The engine's public snapshot intentionally hides the chosen Random Pick winner until the result is revealed.
 
-Pointers are tracked by browser pointer ID while they are down. Participant IDs, colors, and symbols remain stable when a returned touch receives a different pointer ID. New participants take the first vacant entry in `PLAYER_STYLES`; this avoids duplicate live styles after an earlier participant expires. Pointer capture keeps movement associated with the play area, and `touch-action: none` prevents ordinary page gestures on the board. `pointercancel` uses the same missing-finger path as a release.
+Pointers are tracked by browser pointer ID while they are down. Participant IDs, colors, and symbols remain stable when a returned touch receives a different pointer ID. New participants take the first vacant color/symbol pair from `playerStyle` in `identity.ts`. It starts with `PLAYER_STYLES`, extends to all 64 base color/symbol combinations, then generates bright hex colors. Admission checks the resulting pair to avoid duplicating a live style, including rounded generated-color collisions. Pointer capture keeps movement associated with the play area, and `touch-action: none` prevents ordinary page gestures on the board. `pointercancel` uses the same missing-finger path as a release. There is no count cap or `navigator.maxTouchPoints` admission check; geometry still enforces spacing and edge margins.
+
+`beginPicking` sets `pickDurationMs` to `RULES.pickMs` plus `RULES.pickExtraPlayerMs` for each participant beyond two. Both modes use that fixed duration for speed decay, final approach, and completion. Pause/return retains the duration; survivor restarts calculate a new one. The snapshot publishes an estimated duration during gathering and the fixed duration during picking or a picking pause, without exposing an unrevealed winner.
 
 ## State transitions
 
@@ -66,7 +68,7 @@ This is ordinary local randomness, not a verifiable multiplayer lottery. The gam
 
 ## Pinball Play
 
-The launch aims toward a randomly chosen initial bumper. During the first 5.8 seconds, the ball moves with a decreasing speed, reflects from board walls, and collides with circular finger bumpers. The simulation uses up to 8-millisecond substeps to reduce missed collisions. Recent finger velocity contributes an impulse, so sliding a finger changes the outgoing direction.
+The launch aims toward a randomly chosen initial bumper. Until the final 1.2 seconds of the player-count-dependent animation, the ball moves with a decreasing speed, reflects from board walls, and collides with circular finger bumpers. The simulation uses up to 8-millisecond substeps to reduce missed collisions. Recent finger velocity contributes an impulse, so sliding a finger changes the outgoing direction.
 
 At the start of the final 1.2-second approach, `predictLanding` scores participants using alignment with current ball velocity, distance, and the last collision. It locks a final target and follows that ring's live position to its rim. This controlled finish guarantees the ball never stops without selecting someone. It also means movement can influence the result during active bouncing, but the target stays fixed once the final approach begins. Pinball does not promise equal odds or full rigid-body realism.
 
@@ -76,7 +78,7 @@ The approach lands one ring-radius plus one ball-radius from the finger center. 
 
 The same Canvas stays mounted when setup changes to play. Its parent changes from a small preview to a fixed, inset-zero stage with `100dvh` height and a `100vh` fallback. No setup panel consumes active play space. Controls use absolute positioning and safe-area offsets. Noninteractive overlays pass pointer events through to the Canvas. Body scrolling is locked only while a round is active; the theme-color metadata follows the light setup and dark game backgrounds.
 
-The Canvas is absolutely positioned inside its measured parent to avoid intrinsic-size feedback during high-DPI resizing. `ResizeObserver` sets the backing buffer and logical engine dimensions, and the pointer adapter synchronizes dimensions before handling a contact if layout changed first. Device pixel ratio is capped at two to balance sharpness and glow cost. Logical coordinates stay in CSS pixels; resizing recalculates capacity and proportionally scales participant positions, the ball, and any pending final-approach origin. A revealed winner remains selected and its ball is repositioned on that ring's rim.
+The Canvas is absolutely positioned inside its measured parent to avoid intrinsic-size feedback during high-DPI resizing. `ResizeObserver` sets the backing buffer and logical engine dimensions, and the pointer adapter synchronizes dimensions before handling a contact if layout changed first. Device pixel ratio is capped at two to balance sharpness and glow cost. Logical coordinates stay in CSS pixels; resizing proportionally scales participant positions, the ball, and any pending final-approach origin without changing membership or duration. A revealed winner remains selected and its ball is repositioned on that ring's rim.
 
 `identity.ts` owns the palette and `PlayerSymbol` type. The Canvas renderer draws opaque numbers and filled/stroked symbols beside each ring, trying alternate positions near edges or other participants. Those labels remain opaque even when a nonwinning ring dims. The winner's number and symbol also appear in the DOM result. See `docs/DESIGN.md` before changing identity or layout.
 
@@ -88,7 +90,7 @@ One `GameAudio` instance lazily creates an AudioContext from Start or another us
 
 ## Practice input
 
-Practice seeds up to six contacts with synthetic pointer IDs after the Canvas has expanded to the viewport. The actual count is limited by engine capacity and admission spacing. A round token prevents a scheduled practice callback from seeding a round that was reset or replaced. Mouse/touch dragging calls the same engine `move` method. Practice releases require the explicit **Lift NN** button; releasing a mouse drag keeps the simulated finger registered. Clicking a missing ring calls the same `join` method used for real returns.
+Practice attempts to seed six contacts with synthetic pointer IDs after the Canvas has expanded to the viewport. The actual count depends on admission spacing and edges; six is a practice preset, not an engine limit. A round token prevents a scheduled practice callback from seeding a round that was reset or replaced. Mouse/touch dragging calls the same engine `move` method. Practice releases require the explicit **Lift NN** button; releasing a mouse drag keeps the simulated finger registered. Clicking a missing ring calls the same `join` method used for real returns.
 
 ## Optional agent tools
 
@@ -98,7 +100,7 @@ Where `document.modelContext.registerTool` exists, the app registers `read_picke
 
 - **Adjust timings:** change `RULES` in `engine.ts`, then update visible copy and documentation. If making timings configurable, pass validated settings into the engine instead of changing globals during an active round.
 - **Tune touch spacing:** adjust `minSpacing`, `ringRadius`, and edge admission together. Verify on actual screens.
-- **Change colors and glow:** edit `PLAYER_STYLES` in `identity.ts`, the Canvas renderer, and CSS theme tokens. Keep unique symbols and opaque numbers independent of color, and check contrast against the board.
+- **Change colors and glow:** edit `PLAYER_STYLES` and `playerStyle` in `identity.ts`, the Canvas renderer, and CSS theme tokens. Keep distinct color/symbol pairs and opaque numbers independent of color, and check contrast against the board. Generated colors must remain hex strings because the renderer appends alpha values.
 - **Change layout:** preserve the single mounted Canvas, full-viewport stage, scroll cleanup, pointer-event passthrough, and safe-area offsets. Verify portrait, landscape, and browser-bar height changes.
 - **Add sound choices:** extend `GameAudio`; keep unlocking and muting centralized.
 - **Change pinball behavior:** keep collision calculations separate from selection and final landing. Document whether changes affect odds.

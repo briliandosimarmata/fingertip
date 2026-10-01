@@ -10,7 +10,7 @@ import { drawGame } from "@/lib/game/renderer";
 import { registerGameTools } from "@/lib/game/webmcp";
 import type { PlayerSymbol } from "@/lib/game/identity";
 
-const INITIAL: Snapshot = { phase: "idle", mode: "random", players: [], countdown: 10, winnerId: null, capacity: 8, notice: "", returnSeconds: 0, demo: false };
+const INITIAL: Snapshot = { phase: "idle", mode: "random", players: [], countdown: 10, winnerId: null, pickDurationMs: RULES.pickMs, notice: "", returnSeconds: 0, demo: false };
 const SYMBOL_ICONS = { triangle: Triangle, diamond: Diamond, star: Star, square: Square, plus: Plus, crescent: Moon, hexagon: Hexagon, cross: X };
 function FingerSymbol({ name }: { name: PlayerSymbol }) { const Icon = SYMBOL_ICONS[name]; return <Icon size={14} strokeWidth={2.5} aria-hidden="true" />; }
 
@@ -55,7 +55,7 @@ export default function Home() {
       const ratio = Math.min(window.devicePixelRatio || 1, 2);
       element.width = Math.round(rect.width * ratio); element.height = Math.round(rect.height * ratio);
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-      game.resize(rect.width, rect.height, game.demo ? 8 : navigator.maxTouchPoints || 8);
+      game.resize(rect.width, rect.height);
       setView(game.snapshot());
     });
     observer.observe(element);
@@ -105,8 +105,8 @@ export default function Home() {
     if (demo) requestAnimationFrame(() => {
       if (token !== roundToken.current || game.phase !== "gathering") return;
       const rect = canvas.current?.getBoundingClientRect();
-      if (rect) game.resize(rect.width, rect.height, 8);
-      const count = Math.min(6, game.capacity);
+      if (rect) game.resize(rect.width, rect.height);
+      const count = 6;
       const columns = game.width > game.height * 1.2 ? 3 : 2;
       const rows = Math.ceil(count / columns);
       const top = Math.min(190, game.height * .28);
@@ -125,7 +125,7 @@ export default function Home() {
     const rect = event.currentTarget.getBoundingClientRect();
     const game = engine.current;
     if (game && (Math.abs(game.width - rect.width) > .5 || Math.abs(game.height - rect.height) > .5)) {
-      game.resize(rect.width, rect.height, game.demo ? 8 : navigator.maxTouchPoints || 8);
+      game.resize(rect.width, rect.height);
     }
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   }
@@ -176,7 +176,7 @@ export default function Home() {
         <button className="icon-button" onClick={toggleSound} aria-label={sound ? "Mute sound" : "Enable sound"} aria-pressed={sound}>{sound ? <Volume2 size={19} /> : <VolumeX size={19} />}</button>
         {idle ? <Dialog open={helpOpen} onOpenChange={setHelpOpen}><DialogTrigger asChild><button className="icon-button" aria-label="How to play"><CircleHelp size={19} /></button></DialogTrigger>
           <DialogContent className="help-dialog"><DialogHeader><DialogTitle>How to play</DialogTitle><DialogDescription>One screen. One finger each.</DialogDescription></DialogHeader>
-            <ol className="help-steps"><li><span>01</span><div><strong>Choose your way to play.</strong><p>Random Pick gives each finger an equal chance. In Pinball Play, movement changes the bounces.</p></div></li><li><span>02</span><div><strong>Tap Let’s pick! Then fingers down.</strong><p>You have 10 seconds to join. You need at least two players.</p></div></li><li><span>03</span><div><strong>Hold through the bounce.</strong><p>Lift a finger and you have 5 seconds to return to its ring. Miss it and the picker starts fresh with the remaining players.</p></div></li><li><span>04</span><div><strong>One finger gets picked.</strong><p>The ball lands on its ring. Tap Again! for another round.</p></div></li></ol>
+            <ol className="help-steps"><li><span>01</span><div><strong>Choose your way to play.</strong><p>Random Pick gives each finger an equal chance. In Pinball Play, movement changes the bounces.</p></div></li><li><span>02</span><div><strong>Tap Let’s pick! Then fingers down.</strong><p>You have 10 seconds to join. You need at least two players. There’s no player cap; leave enough space between fingers.</p></div></li><li><span>03</span><div><strong>Hold through the bounce.</strong><p>Two players bounce for 7 seconds, plus 1 second for each extra player. Lift a finger and you have 5 seconds to return to its ring. Miss it and the picker starts fresh with the remaining players.</p></div></li><li><span>04</span><div><strong>One finger gets picked.</strong><p>The ball lands on its ring. Tap Again! for another round.</p></div></li></ol>
             <p className="help-practice">Every ring has a number and a symbol, so color isn’t your only clue. Practice adds up to six fingers: drag a ring, or use Lift to try a pause.</p>
           </DialogContent></Dialog> : <button className="icon-button" onClick={reset} aria-label="End round"><X size={21} /></button>}
       </div>
@@ -200,10 +200,10 @@ export default function Home() {
       <p className="mode-description">{modes.find(m => m.id === mode)?.description}</p>
       <button className="start-button" onClick={() => start()}><Hand size={24} strokeWidth={1.8} /> Let’s pick!</button>
       <button className="practice-button" onClick={() => start(true)}>Try practice fingers</button>
-      <p className="start-footnote">10 seconds to join · 2+ players</p>
+      <p className="start-footnote">10 seconds to join · 2+ players<br />More players, longer bounce.</p>
     </section>}
 
-    {!idle && view.phase === "winner" ? <div className="winner-actions"><button className="play-again" onClick={() => start(view.demo)}><RotateCcw size={18} /> Again!</button><button className="change-mode-button" onClick={reset}>Change mode</button></div> : !idle && !view.demo && <p className="play-hint">{view.phase === "paused" ? `${view.returnSeconds} seconds to return` : "Hold. Bounce. Pick."}</p>}
-    {!idle && view.demo && view.phase !== "winner" && <div className="demo-controls"><span className="practice-hint">Practice · drag a ring</span><div className="practice-toolbar"><div className="demo-fingers">{view.players.map(p => <button key={p.id} className={demoFinger === p.id ? "chosen" : ""} style={{ "--finger-color": p.color } as CSSProperties} aria-label={`Select practice finger ${p.id}, ${p.symbol}`} aria-pressed={demoFinger === p.id} onClick={() => setDemoFinger(p.id)}>{String(p.id).padStart(2, "0")}</button>)}</div><button className="lift-button" onClick={liftDemo} disabled={!view.players.find(p => p.id === demoFinger)?.active}>Lift {String(demoFinger).padStart(2, "0")}</button></div></div>}
+    {!idle && view.phase === "winner" ? <div className="winner-actions"><button className="play-again" onClick={() => start(view.demo)}><RotateCcw size={18} /> Again!</button><button className="change-mode-button" onClick={reset}>Change mode</button></div> : !idle && !view.demo && <p className="play-hint">{view.phase === "paused" ? `${view.returnSeconds} seconds to return` : `${view.players.length} players · ${view.pickDurationMs / 1000}s bounce`}</p>}
+    {!idle && view.demo && view.phase !== "winner" && <div className="demo-controls"><span className="practice-hint">Practice · drag a ring · {view.pickDurationMs / 1000}s bounce</span><div className="practice-toolbar"><div className="demo-fingers">{view.players.map(p => <button key={p.id} className={demoFinger === p.id ? "chosen" : ""} style={{ "--finger-color": p.color } as CSSProperties} aria-label={`Select practice finger ${p.id}, ${p.symbol}`} aria-pressed={demoFinger === p.id} onClick={() => setDemoFinger(p.id)}>{String(p.id).padStart(2, "0")}</button>)}</div><button className="lift-button" onClick={liftDemo} disabled={!view.players.find(p => p.id === demoFinger)?.active}>Lift {String(demoFinger).padStart(2, "0")}</button></div></div>}
   </main>;
 }

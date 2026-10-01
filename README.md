@@ -1,8 +1,10 @@
 # Fingertip
 
-A mobile-first, shared-screen random picker. Each person holds one finger on the screen. Colored rings, numbers, and distinct symbols identify participants, and a bouncing ball lands on the selected finger. Active rounds fill the browser viewport, leaving more room for everyone.
+A mobile-first, shared-screen random picker. Each person holds one finger on the screen. Colored rings, numbers, and symbols identify participants, and a bouncing ball lands on the selected finger. Active rounds fill the browser viewport, leaving more room for everyone.
 
-Version 1.1 adds the approved minimal, playful design: a light setup screen, a dark edge-to-edge playfield, and small floating controls. The player palette uses the seven chromatic Okabe–Ito colors plus white, with numbers and shapes so identification never depends on color alone.
+The app has a light setup screen, a dark edge-to-edge playfield, and small floating controls. The player palette starts with the seven chromatic Okabe–Ito colors plus white, with numbers and shapes so identification never depends on color alone. Larger groups receive additional distinct color/symbol pairs.
+
+There is no software player cap. Ball animation lasts seven seconds for two players, plus one second per additional player, in both modes. Fingers still need space, and a real round depends on the simultaneous touches your device and browser can deliver.
 
 ## Run locally
 
@@ -48,11 +50,11 @@ The corresponding `npm run` commands work as well. Build before running preview.
 
 1. Choose **Random Pick** or **Pinball Play**, then tap **Let’s pick!**.
 2. Place one finger per player within ten seconds. Each accepted touch gets a colored ring with an external number and symbol.
-3. Hold your finger down while the ball bounces and slows over seven seconds.
+3. Hold your finger down while the ball bounces and slows: two players take seven seconds, four take nine, and eight take thirteen.
 4. The ball lands on the winning ring's edge so it remains visible around the fingertip.
 5. Lift your fingers once the result appears. Tap **Again!** to reuse the mode, or **Change mode** to return to setup.
 
-The board fills the browser's visible viewport, including when its height changes. It does not request native fullscreen or hide browser controls. Sound and close controls float over the board, and the available participant cap is recalculated from the expanded area and the device's reported touch capacity.
+The board fills the browser's visible viewport, including when its height changes. It does not request native fullscreen or hide browser controls. Sound and close controls float over the board. Screen area and reported touch capacity do not impose a numeric player cap; spacing and edge admission rules still keep fingers apart. During gathering, the board shows the player count and upcoming bounce duration.
 
 ### The two modes
 
