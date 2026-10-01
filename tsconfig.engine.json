@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext",
+    "strict": true, "skipLibCheck": true, "esModuleInterop": true,
+    "lib": ["ES2022", "DOM"], "types": ["node"],
+    "rootDir": ".", "outDir": ".engine-tests"
+  },
+  "include": ["lib/game/engine.ts", "lib/game/random.ts", "lib/game/webmcp.ts", "tests/engine.test.ts"]
+}
